@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lite Image Search</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e2e6ea;
+      --text: #1a1a2e;
+      --text-secondary: #6c757d;
+      --primary: #4a6cf7;
+      --primary-hover: #3a5ce5;
+      --danger: #e74c3c;
+      --success: #27ae60;
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    [data-theme="dark"] {
+      --bg: #1a1a2e;
+      --surface: #252540;
+      --border: #3a3a5c;
+      --text: #e0e0f0;
+      --text-secondary: #9999bb;
+      --primary: #6b8cff;
+      --primary-hover: #5a7cee;
+      --shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow);
+      transition: background 0.3s;
+    }
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: pointer;
+      text-decoration: none;
+      color: var(--text);
+    }
+    .logo span { color: var(--primary); }
+
+    /* ── Search bar ── */
+    .search-box {
+      flex: 1;
+      max-width: 600px;
+      position: relative;
+    }
+    .search-box input {
+      width: 100%;
+      padding: 10px 44px 10px 16px;
+      border: 2px solid var(--border);
+      border-radius: 24px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    .search-box input:focus { border-color: var(--primary); }
+    .search-btn {
+      position: absolute;
+      right: 6px; top: 50%;
+      transform: translateY(-50%);
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 32px; height: 32px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .search-btn:hover { background: var(--primary-hover); }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 24px;
+      flex-wrap: wrap;
+    }
+    .toolbar select, .toolbar button {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 14px;
+      cursor: pointer;
+      color: var(--text);
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .toolbar select:focus, .toolbar button:focus { outline: none; border-color: var(--primary); }
+    .btn-primary { background: var(--primary) !important; color: white !important; border: none !important; }
+    .btn-primary:hover { background: var(--primary-hover) !important; }
+    .btn-danger { color: var(--danger) !important; border-color: var(--danger) !important; }
+    .btn-danger:hover { background: var(--danger) !important; color: white !important; }
+    .btn-success { background: var(--success) !important; color: white !important; border: none !important; }
+    .btn-success:hover { opacity: 0.9; }
+    .btn-settings { margin-left: auto; }
+    .stats { color: var(--text-secondary); font-size: 14px; }
+
+    /* ── Select mode floating bar ── */
+    .select-bar {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+      font-size: 14px;
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 300;
+      max-width: 90vw;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    [data-theme="dark"] .select-bar {
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    }
+    .select-bar.active { display: flex; }
+    .select-bar .sel-count { font-weight: 600; color: var(--primary); }
+
+    /* ── API key warning ── */
+    .api-warning {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 24px;
+      background: #fff3cd;
+      border-bottom: 1px solid #ffc107;
+      font-size: 14px;
+    }
+    [data-theme="dark"] .api-warning {
+      background: #3d3520;
+      border-bottom-color: #665500;
+    }
+    .api-warning.active { display: flex; }
+    .api-warning .warn-icon { font-size: 20px; }
+    .api-warning .warn-text { flex: 1; }
+    .api-warning button { padding: 6px 12px; font-size: 13px; }
+
+    /* ── Image grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      padding: 0;
+    }
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
+      position: relative;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .card.selected {
+      outline: 3px solid var(--primary);
+      outline-offset: -3px;
+    }
+    .card img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      display: block;
+      background: #eee;
+      pointer-events: none;
+    }
+    [data-theme="dark"] .card img { background: #333; }
+    .card-info { padding: 10px 12px; }
+    .card-name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-meta { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+    .card-score {
+      position: absolute;
+      top: 8px; right: 8px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .card-check {
+      position: absolute;
+      top: 8px; left: 8px;
+      width: 24px; height: 24px;
+      background: white;
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      z-index: 2;
+      transition: all 0.15s;
+    }
+    .card.selected .card-check {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    /* ── Card action buttons (fav + download) ── */
+    .card-actions {
+      position: absolute;
+      bottom: 8px; right: 8px;
+      display: flex;
+      gap: 4px;
+      z-index: 2;
+    }
+    .card-no-embed {
+      position: absolute;
+      top: 8px; left: 8px;
+      width: 24px; height: 24px;
+      background: #e74c3c;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      z-index: 2;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .card-act-btn {
+      width: 32px; height: 32px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+      transition: transform 0.15s;
+      padding: 0;
+      line-height: 1;
+      color: #333;
+    }
+    [data-theme="dark"] .card-act-btn {
+      background: rgba(60,60,80,0.92);
+      color: #e0e0f0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+    .card-act-btn:hover { transform: scale(1.2); }
+    .card-act-btn.fav-active { color: #e74c3c; }
+    .fav-filter-active { color: #e74c3c !important; border-color: #e74c3c !important; }
+
+    /* ── Favorite burst animation ── */
+    @keyframes fav-burst {
+      0%   { transform: scale(1); }
+      30%  { transform: scale(1.5); }
+      60%  { transform: scale(0.9); }
+      100% { transform: scale(1); }
+    }
+    .card-act-btn.burst { animation: fav-burst 0.4s ease; }
+
+    /* ── Toast notification ── */
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      max-width: 480px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      background: #333;
+      color: #fff;
+      font-size: 14px;
+      z-index: 10000;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      word-break: break-word;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .toast.error { background: #c0392b; }
+    .toast.success { background: #27ae60; }
+
+    /* ── Upload area ── */
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 48px 24px;
+      text-align: center;
+      margin: 0 24px 24px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .upload-area:hover, .upload-area.dragover {
+      border-color: var(--primary);
+      background: rgba(74,108,247,0.04);
+    }
+    .upload-area p { color: var(--text-secondary); margin-top: 8px; }
+    .upload-area .icon { font-size: 40px; }
+    .upload-progress { margin: 0 24px 24px; display: none; }
+    .upload-progress.active { display: block; }
+    .progress-bar {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 3px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius);
+      max-width: 700px;
+      width: 90%;
+      max-height: 90vh;
+      overflow: auto;
+      padding: 24px;
+      transition: background 0.3s;
+    }
+    .modal img { width: 100%; border-radius: 8px; margin-bottom: 16px; pointer-events: none; }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    .modal-detail {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    .modal-actions { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* ── Settings modal ── */
+    .settings-modal .modal { max-width: 440px; }
+    .settings-modal label { font-size: 14px; font-weight: 600; display: block; margin-bottom: 8px; }
+    .settings-modal input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: monospace;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    .settings-modal input[type="text"]:focus { outline: none; border-color: var(--primary); }
+    .settings-modal .status { font-size: 13px; margin-top: 8px; }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .settings-row:last-of-type { border-bottom: none; }
+    .settings-row label { margin-bottom: 0; }
+    .settings-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .settings-section-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    /* ── Theme toggle switch ── */
+    .toggle-switch {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      background: var(--border);
+      border-radius: 13px;
+      cursor: pointer;
+      transition: background 0.3s;
+      flex-shrink: 0;
+    }
+    .toggle-switch.active { background: var(--primary); }
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.3s;
+    }
+    .toggle-switch.active::after { transform: translateX(22px); }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; padding: 64px 24px; color: var(--text-secondary); }
+    .empty .icon { font-size: 48px; margin-bottom: 16px; }
+
+    /* ── Loading spinner ── */
+    .loading { text-align: center; padding: 48px; color: var(--text-secondary); }
+    .spinner {
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      width: 32px; height: 32px;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Buttons ── */
+    button {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text);
+    }
+    button:hover { background: var(--bg); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Drag selection box ── */
+    .grid { position: relative; }
+    .drag-box {
+      position: absolute;
+      border: 2px dashed var(--primary);
+      background: rgba(74,108,247,0.1);
+      z-index: 10;
+      pointer-events: none;
+      display: none;
+    }
+    .grid-wrapper .grid { padding: 0; }
+
+    /* ── Pagination ── */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 24px;
+      flex-wrap: wrap;
+    }
+    .pagination button {
+      min-width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 0 12px;
+      color: var(--text);
+      transition: all 0.2s;
+    }
+    .pagination button:hover { background: var(--bg); border-color: var(--primary); }
+    .pagination button.active-page {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+    .pagination button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .page-info {
+      font-size: 14px;
+      color: var(--text-secondary);
+      padding: 0 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="toast" id="toast"></div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo" onclick="goHome()">🔍 <span>Lite</span> Image Search</div>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="搜尋圖片，例如：狗、海灘、日落..." />
+      <button class="search-btn" onclick="doSearch()">→</button>
+    </div>
+  </nav>
+
+  <!-- API Key warning -->
+  <div class="api-warning" id="apiWarning">
+    <span class="warn-icon">⚠️</span>
+    <span class="warn-text">尚未設定 Gemini API Key，搜尋和圖片辨識功能將無法使用。請先到設定頁面輸入 API Key。</span>
+    <button class="btn-primary" onclick="openSettings()">前往設定</button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar" id="toolbar">
+    <select id="sortSelect" onchange="loadHomepage()">
+      <option value="newest">由新到舊</option>
+      <option value="oldest">由舊到新</option>
+      <option value="downloads">下載次數多→少</option>
+    </select>
+    <button class="btn-primary" onclick="document.getElementById('fileInput').click()">📤 上傳圖片</button>
+    <input type="file" id="fileInput" multiple accept="image/*,.ai,.psd,.pdf,.svg,.heic,.heif,.eps" style="display:none" onchange="uploadFiles(this.files)" />
+    <button id="selectModeBtn" onclick="toggleSelectMode()">☑️ 選取模式</button>
+    <button id="favFilterBtn" onclick="toggleFavFilter()">🤍 我的最愛</button>
+    <span class="stats" id="statsText"></span>
+    <button class="btn-settings" onclick="openSettings()">⚙️ 設定</button>
+  </div>
+
+  <!-- Select mode bar -->
+  <div class="select-bar" id="selectBar">
+    <span>已選取 <span class="sel-count" id="selCount">0</span> 張</span>
+    <button onclick="selectAll()">全選</button>
+    <button onclick="deselectAll()">取消全選</button>
+    <button class="btn-success" onclick="batchDownload()">📦 批量下載</button>
+    <button class="btn-danger" onclick="batchDelete()">🗑️ 批量刪除</button>
+    <span style="width:1px;height:20px;background:var(--border);margin:0 4px"></span>
+    <button onclick="toggleSelectMode()">✕ 退出選取</button>
+  </div>
+
+  <!-- Upload progress -->
+  <div class="upload-progress" id="uploadProgress">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-top:8px" id="progressText">上傳中...</p>
+  </div>
+
+  <!-- Upload drag area -->
+  <div class="upload-area" id="uploadArea">
+    <div class="icon">📂</div>
+    <p><b>拖放圖片到這裡</b>，或點擊上方「上傳圖片」按鈕</p>
+    <p>支援 JPG、PNG、GIF、WebP、AI、PSD、PDF、SVG、HEIC</p>
+  </div>
+
+  <!-- Top pagination -->
+  <div class="pagination" id="paginationTop" style="display:none"></div>
+
+  <!-- Image grid -->
+  <div class="grid-wrapper" id="gridWrapper" style="position:relative;padding:0 24px 24px;">
+    <div class="grid" id="imageGrid"></div>
+    <div class="drag-box" id="dragBox"></div>
+  </div>
+
+  <!-- Bottom pagination -->
+  <div class="pagination" id="paginationBottom" style="display:none"></div>
+
+  <!-- Empty state -->
+  <div class="empty" id="emptyState" style="display:none">
+    <div class="icon">🖼️</div>
+    <p>還沒有圖片，上傳一些試試吧！</p>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loadingState" style="display:none">
+    <div class="spinner"></div>
+    <p id="loadingText">搜尋中...</p>
+  </div>
+
+  <!-- Image detail modal -->
+  <div class="modal-overlay" id="imageModal">
+    <div class="modal">
+      <img id="modalImage" src="" alt="" />
+      <div class="modal-title" id="modalTitle"></div>
+      <div class="modal-detail" id="modalSize"></div>
+      <div class="modal-detail" id="modalDate"></div>
+      <div class="modal-detail" id="modalDownloads"></div>
+      <div class="modal-detail" id="modalScore" style="display:none"></div>
+      <div class="modal-actions">
+        <button id="modalFavBtn" onclick="toggleModalFavorite()">🤍 我的最愛</button>
+        <button class="btn-primary" onclick="downloadImage()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>下載原檔</button>
+        <button id="modalReembedBtn" onclick="reembedImage()" style="display:none" title="重新呼叫 Gemini API 產生向量">🔄 重新向量化</button>
+        <button class="btn-danger" onclick="deleteImage()">🗑️ 刪除</button>
+        <button onclick="closeModal()">✕ 關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="modal-overlay settings-modal" id="settingsModal">
+    <div class="modal">
+      <div class="modal-title">⚙️ 設定</div>
+      <div class="settings-row">
+        <label>🌙 暗色主題</label>
+        <div class="toggle-switch" id="themeToggle" onclick="toggleTheme()"></div>
+      </div>
+      <div class="settings-row">
+        <label for="apiKeyInput">Gemini API Key</label>
+      </div>
+      <input type="text" id="apiKeyInput" placeholder="輸入你的 Gemini API Key..." />
+      <div class="status" id="apiKeyStatus"></div>
+      <p style="font-size:12px;color:var(--text-secondary);margin-top:8px">
+        免費取得：https://aistudio.google.com/apikey
+      </p>
+      <div class="modal-actions" style="margin-bottom:0">
+        <button class="btn-primary" onclick="saveApiKey()">儲存</button>
+      </div>
+
+      <!-- Export / Import section -->
+      <div class="settings-section">
+        <div class="settings-section-title">📦 圖庫匯出 / 匯入</div>
+        <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+          匯出包含原始檔案、縮圖、向量資料。匯入時同名檔案會自動跳過。
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="exportGallery()">📤 匯出圖庫</button>
+          <button onclick="document.getElementById('importFileInput').click()">📥 匯入圖庫</button>
+          <input type="file" id="importFileInput" accept=".zip" style="display:none" onchange="importGallery(this.files[0])" />
+        </div>
+        <div class="status" id="importStatus"></div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:16px">
+        <button onclick="closeSettings()">✕ 關閉</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ── State ──
+  let currentImages = [];
+  let selectedImageId = null;
+  let isSearchMode = false;
+  let selectMode = false;
+  let selectedIds = new Set();
+  let favFilter = false;
+  let currentPage = 1;
+  const PAGE_SIZE = 100;
+
+  // ── Toast ──
+  let toastTimer = null;
+  function showToast(msg, type = '') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast ' + type + ' show';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.classList.remove('show'); }, 5000);
+  }
+
+  // ── Theme ──
+  function loadTheme() {
+    const saved = localStorage.getItem('lis-theme');
+    if (saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.getElementById('themeToggle').classList.add('active');
+    }
+  }
+  function toggleTheme() {
+    const toggle = document.getElementById('themeToggle');
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (isDark) {
+      document.documentElement.removeAttribute('data-theme');
+      toggle.classList.remove('active');
+      localStorage.setItem('lis-theme', 'light');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      toggle.classList.add('active');
+      localStorage.setItem('lis-theme', 'dark');
+    }
+  }
+
+  // ── Init ──
+  document.addEventListener('DOMContentLoaded', () => {
+    loadTheme();
+    loadHomepage();
+    checkApiKey();
+
+    document.getElementById('searchInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doSearch();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (document.getElementById('imageModal').classList.contains('active')) {
+          closeModal();
+        } else if (selectMode) {
+          toggleSelectMode();
+        }
+      }
+    });
+
+    const area = document.getElementById('uploadArea');
+    area.addEventListener('dragover', (e) => { e.preventDefault(); area.classList.add('dragover'); });
+    area.addEventListener('dragleave', () => area.classList.remove('dragover'));
+    area.addEventListener('drop', (e) => {
+      e.preventDefault();
+      area.classList.remove('dragover');
+      if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+    });
+
+    initDragSelection();
+  });
+
+  // ── Go home ──
+  function goHome() {
+    document.getElementById('searchInput').value = '';
+    if (selectMode) toggleSelectMode();
+    currentPage = 1;
+    loadHomepage();
+  }
+
+  // ── Card click handlers ──
+  function handleCardMouseDown(event) {
+    if (event.shiftKey || event.ctrlKey || event.metaKey) event.preventDefault();
+  }
+
+  function handleCardClick(id, event) {
+    // Shift+Click: toggle favorite
+    if (event && event.shiftKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleFavorite(id, event);
+      return;
+    }
+    // Ctrl+Click: auto-enter select mode and select
+    if (event && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!selectMode) enterSelectMode();
+      toggleSelect(id, event);
+      return;
+    }
+    if (selectMode) {
+      toggleSelect(id, event);
+    } else {
+      openImageModal(id);
+    }
+  }
+
+  // ── Select mode ──
+  function enterSelectMode() {
+    selectMode = true;
+    selectedIds.clear();
+    document.getElementById('selectBar').classList.add('active');
+    document.getElementById('selectModeBtn').textContent = '☑️ 退出選取';
+    updateSelCount();
+    renderCurrentPage(isSearchMode);
+  }
+
+  function toggleSelectMode() {
+    if (selectMode) {
+      selectMode = false;
+      selectedIds.clear();
+      document.getElementById('selectBar').classList.remove('active');
+      document.getElementById('selectModeBtn').textContent = '☑️ 選取模式';
+      updateSelCount();
+      renderCurrentPage(isSearchMode);
+    } else {
+      enterSelectMode();
+    }
+  }
+
+  function toggleSelect(id, event) {
+    if (event) event.stopPropagation();
+    if (selectedIds.has(id)) selectedIds.delete(id);
+    else selectedIds.add(id);
+    const card = document.querySelector(`.card[data-id="${id}"]`);
+    if (card) card.classList.toggle('selected', selectedIds.has(id));
+    updateSelCount();
+    checkAutoExitSelectMode();
+  }
+
+  function selectAll() {
+    const pageImages = getPageImages();
+    pageImages.forEach(img => selectedIds.add(img.id));
+    document.querySelectorAll('.card').forEach(c => c.classList.add('selected'));
+    updateSelCount();
+  }
+
+  function deselectAll() {
+    selectedIds.clear();
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+    updateSelCount();
+    checkAutoExitSelectMode();
+  }
+
+  function updateSelCount() {
+    document.getElementById('selCount').textContent = selectedIds.size;
+  }
+
+  function checkAutoExitSelectMode() {
+    if (selectMode && selectedIds.size === 0) {
+      selectMode = false;
+      document.getElementById('selectBar').classList.remove('active');
+      document.getElementById('selectModeBtn').textContent = '☑️ 選取模式';
+      renderCurrentPage(isSearchMode);
+    }
+  }
+
+  // ── Favorite ──
+  function toggleFavFilter() {
+    favFilter = !favFilter;
+    const btn = document.getElementById('favFilterBtn');
+    btn.textContent = favFilter ? '❤️ 我的最愛' : '🤍 我的最愛';
+    btn.classList.toggle('fav-filter-active', favFilter);
+    currentPage = 1;
+    loadHomepage();
+  }
+
+  async function toggleFavorite(id, event) {
+    if (event) { event.preventDefault(); event.stopPropagation(); }
+    try {
+      const resp = await fetch(`/api/favorite/${id}`, { method: 'POST' });
+      const data = await resp.json();
+      const img = currentImages.find(i => i.id === id);
+      if (img) img.favorite = data.favorite;
+      const card = document.querySelector(`.card[data-id="${id}"]`);
+      if (card) {
+        const favBtn = card.querySelector('.card-act-btn.fav-btn');
+        if (favBtn) {
+          favBtn.textContent = data.favorite ? '❤️' : '🤍';
+          favBtn.classList.toggle('fav-active', data.favorite);
+          favBtn.classList.remove('burst');
+          void favBtn.offsetWidth;
+          favBtn.classList.add('burst');
+        }
+      }
+      if (favFilter && !data.favorite) loadHomepage();
+    } catch (e) { console.error(e); }
+  }
+
+  function downloadFromCard(id, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    fetch(`/api/download-count/${id}`, {method: 'POST'}).catch(()=>{});
+    window.open(`/api/download/${id}`, '_blank');
+  }
+
+  // ── Homepage ──
+  async function loadHomepage() {
+    isSearchMode = false;
+    const sort = document.getElementById('sortSelect').value;
+    showLoading('載入中...');
+    try {
+      const resp = await fetch(`/api/images?sort=${sort}&fav=${favFilter}`);
+      const data = await resp.json();
+      currentImages = data.images;
+      currentPage = 1;
+      renderCurrentPage();
+      document.getElementById('statsText').textContent = favFilter
+        ? `我的最愛: ${data.total} 張`
+        : `共 ${data.total} 張圖片`;
+    } catch (e) { console.error(e); }
+    hideLoading();
+  }
+
+  // ── Search ──
+  async function doSearch() {
+    const query = document.getElementById('searchInput').value.trim();
+    if (!query) { loadHomepage(); return; }
+    isSearchMode = true;
+    showLoading(`搜尋「${query}」中...`);
+    try {
+      const resp = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, top_k: 50 }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        const detail = data.detail || '未知錯誤';
+        showToast('搜尋失敗: ' + detail, 'error');
+        return;
+      }
+      currentImages = data.results;
+      currentPage = 1;
+      renderCurrentPage(true);
+      document.getElementById('statsText').textContent = `搜尋「${query}」: ${currentImages.length} 筆結果`;
+    } catch (e) {
+      showToast('搜尋失敗: ' + e.message, 'error');
+    }
+    hideLoading();
+  }
+
+  // ── Upload ──
+  async function uploadFiles(files) {
+    if (!files.length) return;
+    const fileArr = Array.from(files);
+    const total = fileArr.length;
+    const progress = document.getElementById('uploadProgress');
+    const fill = document.getElementById('progressFill');
+    const text = document.getElementById('progressText');
+    progress.classList.add('active');
+    fill.style.width = '0%';
+
+    let uploaded = 0, failed = 0;
+    const allErrors = [];
+
+    for (let i = 0; i < total; i++) {
+      text.textContent = `上傳中... (${i + 1}/${total}) ${fileArr[i].name}`;
+      const pct = Math.round(((i) / total) * 100);
+      fill.style.width = pct + '%';
+
+      const formData = new FormData();
+      formData.append('files', fileArr[i]);
+
+      try {
+        const resp = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await resp.json();
+        uploaded += (data.uploaded || []).length;
+        if (data.errors && data.errors.length) {
+          failed += data.errors.length;
+          allErrors.push(...data.errors);
+        }
+      } catch (e) {
+        failed++;
+        allErrors.push({ filename: fileArr[i].name, error: e.message });
+      }
+    }
+
+    fill.style.width = '100%';
+    if (allErrors.length) {
+      showToast(`⚠️ ${allErrors.length} 個檔案上傳失敗: ` + allErrors.slice(0, 3).map(e => `${e.filename}: ${e.error}`).join('; ') + (allErrors.length > 3 ? '...' : ''), 'error');
+    }
+    text.textContent = `完成！上傳 ${uploaded} 張，失敗 ${failed} 張`;
+    setTimeout(() => { progress.classList.remove('active'); loadHomepage(); }, 2000);
+    document.getElementById('fileInput').value = '';
+  }
+
+  // ── Batch ops ──
+  function batchDownload() {
+    if (selectedIds.size === 0) { showToast('請先選取圖片'); return; }
+    // Use GET + window.open — works in all browsers including pywebview
+    const idsParam = Array.from(selectedIds).join(',');
+    window.open('/api/download-batch-zip?ids=' + idsParam, '_blank');
+    showToast(`已下載 ${selectedIds.size} 張圖片`);
+  }
+
+  async function batchDelete() {
+    if (selectedIds.size === 0) { showToast('請先選取圖片'); return; }
+    if (!confirm(`確定要刪除 ${selectedIds.size} 張圖片嗎？`)) return;
+    try {
+      await fetch('/api/delete-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+      });
+      selectedIds.clear();
+      updateSelCount();
+      if (isSearchMode) doSearch(); else loadHomepage();
+    } catch (e) { showToast('批量刪除失敗: ' + e.message, 'error'); }
+  }
+
+  // ── Pagination ──
+  function getPageImages() {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return currentImages.slice(start, start + PAGE_SIZE);
+  }
+  function getTotalPages() { return Math.max(1, Math.ceil(currentImages.length / PAGE_SIZE)); }
+  function goToPage(page) {
+    if (page < 1 || page > getTotalPages()) return;
+    currentPage = page;
+    renderCurrentPage(isSearchMode);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function renderPagination() {
+    const total = getTotalPages();
+    const topEl = document.getElementById('paginationTop');
+    const bottomEl = document.getElementById('paginationBottom');
+    if (total <= 1) { topEl.style.display = 'none'; bottomEl.style.display = 'none'; return; }
+    let html = `<button ${currentPage === 1 ? 'disabled' : ''} onclick="goToPage(${currentPage - 1})">◀</button>`;
+    const maxVisible = 7;
+    let pages = [];
+    if (total <= maxVisible) {
+      for (let i = 1; i <= total; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      let start = Math.max(2, currentPage - 2);
+      let end = Math.min(total - 1, currentPage + 2);
+      if (start > 2) pages.push('...');
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (end < total - 1) pages.push('...');
+      pages.push(total);
+    }
+    for (const p of pages) {
+      if (p === '...') html += `<span class="page-info">...</span>`;
+      else html += `<button class="${p === currentPage ? 'active-page' : ''}" onclick="goToPage(${p})">${p}</button>`;
+    }
+    html += `<button ${currentPage === total ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">▶</button>`;
+    html += `<span class="page-info">${currentPage} / ${total} 頁（共 ${currentImages.length} 張）</span>`;
+    topEl.innerHTML = html;
+    bottomEl.innerHTML = html;
+    topEl.style.display = 'flex';
+    bottomEl.style.display = 'flex';
+  }
+
+  // ── Render grid ──
+  function renderCurrentPage(showScore = false) {
+    renderGrid(getPageImages(), showScore);
+    renderPagination();
+  }
+
+  function renderGrid(images, showScore = false) {
+    const grid = document.getElementById('imageGrid');
+    const empty = document.getElementById('emptyState');
+    const area = document.getElementById('uploadArea');
+    if (!currentImages.length) {
+      grid.innerHTML = '';
+      empty.style.display = 'block';
+      area.style.display = 'block';
+      document.getElementById('paginationTop').style.display = 'none';
+      document.getElementById('paginationBottom').style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    area.style.display = 'none';
+
+    grid.innerHTML = images.map(img => {
+      const isSelected = selectedIds.has(img.id);
+      return `
+      <div class="card ${isSelected ? 'selected' : ''}" data-id="${img.id}"
+           onclick="handleCardClick(${img.id}, event)"
+           onmousedown="handleCardMouseDown(event)">
+        ${selectMode ? `<div class="card-check">${isSelected ? '✓' : ''}</div>` : ''}
+        ${showScore && img.similarity != null ? `<div class="card-score">${(img.similarity * 100).toFixed(1)}%</div>` : ''}
+        ${!img.has_embedding ? '<div class="card-no-embed" title="尚未向量化">!</div>' : ''}
+        <img src="/api/thumb/${img.id}" alt="${img.filename}" loading="lazy" />
+        <div class="card-actions">
+          <button class="card-act-btn fav-btn ${img.favorite ? 'fav-active' : ''}"
+                  onclick="toggleFavorite(${img.id}, event)">${img.favorite ? '❤️' : '🤍'}</button>
+          <button class="card-act-btn" onclick="downloadFromCard(${img.id}, event)" title="下載"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+        </div>
+        <div class="card-info">
+          <div class="card-name" title="${img.filename}">${img.filename}</div>
+          <div class="card-meta">
+            ${img.width && img.height ? `${img.width}×${img.height}` : ''} ${img.file_ext?.toUpperCase() || ''}
+            ${img.download_count > 0 ? ` · <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>${img.download_count}` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Image modal ──
+  function openImageModal(id) {
+    if (selectMode) return;
+    selectedImageId = id;
+    const img = currentImages.find(i => i.id === id);
+    if (!img) return;
+    document.getElementById('modalImage').src = `/api/thumb/${id}`;
+    document.getElementById('modalTitle').textContent = img.filename;
+    document.getElementById('modalSize').textContent = img.width && img.height ? `尺寸: ${img.width}×${img.height}` : '';
+    document.getElementById('modalDate').textContent = `上傳時間: ${new Date(img.upload_time * 1000).toLocaleString('zh-TW')}`;
+    document.getElementById('modalDownloads').textContent = `下載次數: ${img.download_count}`;
+    const scoreEl = document.getElementById('modalScore');
+    if (img.similarity != null) {
+      scoreEl.style.display = 'block';
+      scoreEl.textContent = `相似度: ${(img.similarity * 100).toFixed(1)}%`;
+    } else { scoreEl.style.display = 'none'; }
+    document.getElementById('imageModal').classList.add('active');
+    updateModalFavBtn();
+    // Show re-embed button if no embedding
+    const reembedBtn = document.getElementById('modalReembedBtn');
+    reembedBtn.style.display = img.has_embedding ? 'none' : 'inline-block';
+  }
+
+  function updateModalFavBtn() {
+    const img = currentImages.find(i => i.id === selectedImageId);
+    const btn = document.getElementById('modalFavBtn');
+    if (img && img.favorite) { btn.textContent = '❤️ 已收藏'; btn.style.color = '#e74c3c'; }
+    else { btn.textContent = '🤍 我的最愛'; btn.style.color = ''; }
+  }
+
+  async function toggleModalFavorite() {
+    await toggleFavorite(selectedImageId, null);
+    updateModalFavBtn();
+  }
+
+  async function reembedImage() {
+    if (!selectedImageId) return;
+    const btn = document.getElementById('modalReembedBtn');
+    btn.textContent = '🔄 向量化中...';
+    btn.disabled = true;
+    try {
+      const resp = await fetch(`/api/reembed/${selectedImageId}`, { method: 'POST' });
+      const data = await resp.json();
+      if (!resp.ok) {
+        showToast('重新向量化失敗: ' + (data.detail || '未知錯誤'), 'error');
+        btn.textContent = '🔄 重新向量化';
+        btn.disabled = false;
+        return;
+      }
+      showToast('✅ 重新向量化成功！');
+      btn.style.display = 'none';
+      // Update currentImages cache
+      const img = currentImages.find(i => i.id === selectedImageId);
+      if (img) img.has_embedding = true;
+      // Re-render to remove the ! badge
+      renderCurrentPage(currentImages.some(i => i.similarity != null));
+    } catch (e) {
+      showToast('重新向量化失敗: ' + e.message, 'error');
+      btn.textContent = '🔄 重新向量化';
+      btn.disabled = false;
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('imageModal').classList.remove('active');
+    selectedImageId = null;
+  }
+
+  async function downloadImage() {
+    if (!selectedImageId) return;
+    fetch(`/api/download-count/${selectedImageId}`, {method: 'POST'}).catch(()=>{});
+    window.open(`/api/download/${selectedImageId}`, '_blank');
+  }
+
+  async function deleteImage() {
+    if (!selectedImageId) return;
+    if (!confirm('確定要刪除這張圖片嗎？')) return;
+    await fetch(`/api/images/${selectedImageId}`, { method: 'DELETE' });
+    closeModal();
+    if (isSearchMode) doSearch(); else loadHomepage();
+  }
+
+  // ── Settings ──
+  async function openSettings() {
+    document.getElementById('settingsModal').classList.add('active');
+    checkApiKey();
+  }
+  function closeSettings() { document.getElementById('settingsModal').classList.remove('active'); }
+
+  async function checkApiKey() {
+    try {
+      const resp = await fetch('/api/key');
+      const data = await resp.json();
+      const el = document.getElementById('apiKeyStatus');
+      const input = document.getElementById('apiKeyInput');
+      const warning = document.getElementById('apiWarning');
+      if (data.configured) {
+        el.textContent = `✅ 已設定 (${data.masked})`;
+        input.value = ''; input.placeholder = '已設定，輸入新的可覆蓋';
+        warning.classList.remove('active');
+      } else {
+        el.textContent = '❌ 尚未設定';
+        warning.classList.add('active');
+      }
+    } catch (e) {}
+  }
+
+  async function saveApiKey() {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    if (!key) { showToast('請輸入 API Key'); return; }
+    await fetch('/api/key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: key }),
+    });
+    document.getElementById('apiKeyInput').value = '';
+    checkApiKey();
+    showToast('API Key 已儲存！', 'success');
+  }
+
+  // ── Export / Import ──
+  function exportGallery() {
+    showToast('正在匯出圖庫，請稍候...');
+    window.open('/api/export', '_blank');
+  }
+
+  async function importGallery(file) {
+    if (!file) return;
+    const statusEl = document.getElementById('importStatus');
+    statusEl.textContent = '正在匯入，請稍候...';
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const resp = await fetch('/api/import', { method: 'POST', body: formData });
+      const data = await resp.json();
+      if (data.ok) {
+        statusEl.textContent = `✅ 匯入完成！新增 ${data.imported} 張，跳過 ${data.skipped} 張重複`;
+        showToast(`圖庫匯入完成！新增 ${data.imported} 張`, 'success');
+        loadHomepage();
+      } else {
+        statusEl.textContent = '❌ 匯入失敗: ' + (data.detail || '未知錯誤');
+        showToast('匯入失敗', 'error');
+      }
+    } catch (e) {
+      statusEl.textContent = '❌ 匯入失敗: ' + e.message;
+      showToast('匯入失敗: ' + e.message, 'error');
+    }
+    document.getElementById('importFileInput').value = '';
+  }
+
+  // ── Loading ──
+  function showLoading(text) {
+    document.getElementById('loadingText').textContent = text;
+    document.getElementById('loadingState').style.display = 'block';
+    document.getElementById('imageGrid').innerHTML = '';
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('paginationTop').style.display = 'none';
+    document.getElementById('paginationBottom').style.display = 'none';
+  }
+  function hideLoading() { document.getElementById('loadingState').style.display = 'none'; }
+
+  // ── Close modals on overlay click ──
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.remove('active');
+    });
+  });
+
+  // ── Drag selection (document-level, works from toolbar area too) ──
+  let isDragging = false;
+  let dragStartX = 0, dragStartY = 0;
+
+  function initDragSelection() {
+    document.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      // Only start drag below navbar, not in modals or special areas
+      if (e.target.closest('.navbar, .modal-overlay, .upload-area, button, select, input, .card, .card-act-btn')) return;
+      // Must be in the main content area (toolbar or grid region)
+      const toolbar = document.getElementById('toolbar');
+      const gridWrapper = document.getElementById('gridWrapper');
+      if (!toolbar || !gridWrapper) return;
+
+      const toolbarRect = toolbar.getBoundingClientRect();
+      const gridRect = gridWrapper.getBoundingClientRect();
+      const topBound = Math.min(toolbarRect.top, gridRect.top);
+      if (e.clientY < topBound) return;
+
+      // Auto-enter select mode
+      if (!selectMode) enterSelectMode();
+
+      isDragging = true;
+      const rect = gridWrapper.getBoundingClientRect();
+      dragStartX = e.clientX - rect.left;
+      dragStartY = e.clientY - rect.top + gridWrapper.scrollTop;
+
+      const dragBox = document.getElementById('dragBox');
+      dragBox.style.left = dragStartX + 'px';
+      dragBox.style.top = dragStartY + 'px';
+      dragBox.style.width = '0px';
+      dragBox.style.height = '0px';
+      dragBox.style.display = 'block';
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const gridWrapper = document.getElementById('gridWrapper');
+      const dragBox = document.getElementById('dragBox');
+      const rect = gridWrapper.getBoundingClientRect();
+
+      const curX = e.clientX - rect.left;
+      const curY = e.clientY - rect.top + gridWrapper.scrollTop;
+
+      const x = Math.min(curX, dragStartX);
+      const y = Math.min(curY, dragStartY);
+      const w = Math.abs(curX - dragStartX);
+      const h = Math.abs(curY - dragStartY);
+
+      dragBox.style.left = x + 'px';
+      dragBox.style.top = y + 'px';
+      dragBox.style.width = w + 'px';
+      dragBox.style.height = h + 'px';
+
+      const boxRect = { left: x, top: y, right: x + w, bottom: y + h };
+      document.querySelectorAll('.card').forEach(card => {
+        const cr = card.getBoundingClientRect();
+        const wrapperRect = gridWrapper.getBoundingClientRect();
+        const cardRect = {
+          left: cr.left - wrapperRect.left,
+          top: cr.top - wrapperRect.top + gridWrapper.scrollTop,
+          right: cr.right - wrapperRect.left,
+          bottom: cr.bottom - wrapperRect.top + gridWrapper.scrollTop,
+        };
+        const intersects = !(cardRect.right < boxRect.left || cardRect.left > boxRect.right ||
+                            cardRect.bottom < boxRect.top || cardRect.top > boxRect.bottom);
+        const id = parseInt(card.dataset.id);
+        if (intersects) {
+          selectedIds.add(id);
+          card.classList.add('selected');
+        } else {
+          selectedIds.delete(id);
+          card.classList.remove('selected');
+        }
+      });
+      document.getElementById('selCount').textContent = selectedIds.size;
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      document.getElementById('dragBox').style.display = 'none';
+      checkAutoExitSelectMode();
+    });
+  }
+</script>
+
+</body>
+</html>

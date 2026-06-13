@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+python-multipart
+requests
+Pillow
+PyMuPDF
+svglib
+reportlab
+psd-tools
+pdf2image
+cairosvg
+pillow-heif
+pywebview
